@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { HotelResult } from '../../../shared/types';
 import { AmenityChip } from './shared';
 import { useSearch } from '@/context/SearchContext';
+import { useFavorites } from '@/context/FavoritesContext';
 
 export interface HotelCardProps extends HotelResult {
   selected: boolean;
@@ -68,6 +69,11 @@ export default function HotelCard(props: HotelCardProps) {
   } = props;
 
   const { setHoveredHotelId, lastParams } = useSearch();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const saved = isFavorite(id);
+  // Strip the presentational props (callbacks, flags) so only the HotelResult
+  // shape is persisted to the favorites store.
+  const { selected: _s, onSelect: _os, onCompare: _oc, previousPrice: _pp, stacked: _st, ...hotel } = props;
   const [imgError, setImgError] = useState(false);
   const showImage = image_url && !imgError;
   const hasPrice = price_per_night > 0;
@@ -93,32 +99,54 @@ export default function HotelCard(props: HotelCardProps) {
       }`}
     >
       {/* Photo */}
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-label={`Select ${name}`}
-        className={`relative block w-full h-44 shrink-0 text-left ${stacked ? '' : 'sm:h-auto sm:w-52 md:w-60'}`}
-      >
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image_url}
-            alt={name}
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-sky-100 flex items-center justify-center">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sky-300" aria-hidden="true">
-              <path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" />
-            </svg>
-          </div>
-        )}
-        <span className="absolute bottom-2 left-2 bg-white/90 text-[10px] font-medium text-brand-dark px-2 py-0.5 rounded-full shadow">
-          {sourceLabel(source)}
-        </span>
-      </button>
+      <div className={`relative w-full h-44 shrink-0 ${stacked ? '' : 'sm:h-auto sm:w-52 md:w-60'}`}>
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={`Select ${name}`}
+          className="relative block w-full h-full text-left"
+        >
+          {showImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={image_url}
+              alt={name}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-sky-100 flex items-center justify-center">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sky-300" aria-hidden="true">
+                <path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" />
+              </svg>
+            </div>
+          )}
+          <span className="absolute bottom-2 left-2 bg-white/90 text-[10px] font-medium text-brand-dark px-2 py-0.5 rounded-full shadow">
+            {sourceLabel(source)}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleFavorite(hotel)}
+          aria-pressed={saved}
+          aria-label={saved ? `Remove ${name} from saved` : `Save ${name}`}
+          className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white/90 shadow hover:bg-white transition-colors"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            className={saved ? 'text-rose-500 animate-heart-pop' : 'text-brand-mid'}
+            fill={saved ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+          </svg>
+        </button>
+      </div>
 
       {/* Details: title + review block on the first row, booking.com-style */}
       <div className="flex-1 min-w-0 p-4 flex flex-col gap-2">

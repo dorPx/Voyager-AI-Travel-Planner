@@ -4,7 +4,39 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useSearch } from '@/context/SearchContext';
 import { useModel } from '@/context/ModelContext';
+import { useRecentSearches, type RecentSearch } from '@/lib/recentSearches';
 import type { SearchParams } from '../../shared/types';
+
+// Core search params <-> URL query string, so a search survives reload and can
+// be shared/bookmarked. Occupancy is included only when non-default to keep
+// shared URLs tidy.
+function writeSearchToUrl(p: SearchParams) {
+  const url = new URL(window.location.href);
+  const q = url.searchParams;
+  q.set('destination', p.destination);
+  q.set('checkin', p.checkin);
+  q.set('checkout', p.checkout);
+  const setOrDelete = (key: string, val: number | undefined, def: number) =>
+    val && val !== def ? q.set(key, String(val)) : q.delete(key);
+  setOrDelete('adults', p.adults, 2);
+  setOrDelete('children', p.children, 0);
+  setOrDelete('rooms', p.rooms, 1);
+  window.history.replaceState(null, '', `${url.pathname}?${q.toString()}`);
+}
+
+function readSearchFromUrl(): SearchParams | null {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search);
+  const destination = q.get('destination');
+  const checkin = q.get('checkin');
+  const checkout = q.get('checkout');
+  if (!destination || !checkin || !checkout) return null;
+  const num = (key: string, def: number) => {
+    const n = Number(q.get(key));
+    return Number.isFinite(n) && n > 0 ? n : def;
+  };
+  return { destination, checkin, checkout, adults: num('adults', 2), children: num('children', 0), rooms: num('rooms', 1) };
+}
 
 const AMENITIES = ['WiFi', 'Pool', 'Gym', 'Breakfast', 'Parking', 'Pet-friendly'];
 
@@ -115,6 +147,7 @@ function Stepper({
 export default function SearchBar() {
   const { setResults, setLoading, setError, loading, setLastParams } = useSearch();
   const { selectedModel } = useModel();
+  const { recent, record } = useRecentSearches();
 
   const [destination, setDestination] = useState('');
   const [origin, setOrigin] = useState('');
@@ -213,12 +246,50 @@ export default function SearchBar() {
       const data = await api.search(params);
       setResults(data);
       setLastParams(params);
+      // Persist to URL + recent list + title only once we know the search ran.
+      writeSearchToUrl(params);
+      record(params);
+      document.title = `${params.destination} — Voyager`;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Search failed.');
       setResults(null);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Rehydrate a shared/bookmarked/reloaded search from the URL, exactly once.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    const fromUrl = readSearchFromUrl();
+    if (!fromUrl) return;
+    setDestination(fromUrl.destination);
+    setCheckin(fromUrl.checkin);
+    setCheckout(fromUrl.checkout);
+    if (fromUrl.adults) setAdults(fromUrl.adults);
+    if (fromUrl.children) setChildren(fromUrl.children);
+    if (fromUrl.rooms) setRooms(fromUrl.rooms);
+    runSearch(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function applyRecent(r: RecentSearch) {
+    setDestination(r.destination);
+    setCheckin(r.checkin);
+    setCheckout(r.checkout);
+    setAdults(r.adults ?? 2);
+    setChildren(r.children ?? 0);
+    setRooms(r.rooms ?? 1);
+    runSearch({
+      destination: r.destination,
+      checkin: r.checkin,
+      checkout: r.checkout,
+      adults: r.adults ?? 2,
+      children: r.children ?? 0,
+      rooms: r.rooms ?? 1,
+    });
   }
 
   function buildParams(overrideDestination?: string, overrideTripType?: string): SearchParams {
@@ -283,7 +354,8 @@ export default function SearchBar() {
     'w-full bg-white border border-beige-300 rounded-lg px-3 py-2.5 text-sm text-brand-black placeholder:text-brand-mid focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-300';
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-5xl mx-auto text-left">
+    <div className="w-full max-w-5xl mx-auto">
+    <form onSubmit={handleSubmit} className="text-left">
       {/* Primary segmented bar */}
       <div className="bg-sky-500 rounded-xl p-1 shadow-lg flex flex-col md:flex-row gap-1">
         {/* Destination */}
@@ -541,5 +613,27 @@ export default function SearchBar() {
         </div>
       )}
     </form>
+
+      {recent.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-brand-dark/70">Recent:</span>
+          {recent.map((r) => (
+            <button
+              key={`${r.destination}|${r.checkin}|${r.checkout}`}
+              type="button"
+              onClick={() => applyRecent(r)}
+              title={`${r.destination} · ${r.checkin} → ${r.checkout}`}
+              className="inline-flex items-center gap-1.5 bg-white/80 hover:bg-white border border-beige-300 rounded-full px-3 py-1 text-xs font-medium text-brand-dark transition-colors max-w-[16rem]"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              <span className="truncate">{r.destination.split(',')[0]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

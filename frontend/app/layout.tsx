@@ -3,6 +3,7 @@ import Link from 'next/link';
 import './globals.css';
 import { ModelProvider } from '@/context/ModelContext';
 import { SearchProvider } from '@/context/SearchContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ModelProvider>
           <SearchProvider>
+            <FavoritesProvider>
             <Header />
 
             <main className="pt-16 pb-16 lg:pb-0 min-h-screen">{children}</main>
@@ -37,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </footer>
 
             <BottomNav />
+            </FavoritesProvider>
           </SearchProvider>
         </ModelProvider>
       </body>

@@ -12,9 +12,16 @@ the result.
   review-score buckets with live counts, amenities, source) and sorting
 - **Flights** (optional "flying from" field) via Google Flights / Sky Scrapper / Duffel
 - **Activities & restaurants** from Google Places and TripAdvisor
+- **Ranking that recommends, not upsells** — the default "top picks" sort blends rating,
+  price, and distance from center; sort also by highest rated, distance, or price
 - **Map view** with synced markers, radius-draw search, and hotel hover highlighting
 - **Compare tray** for side-by-side hotel comparison, plus live price polling with
   price-drop badges
+- **Save hotels** to a wishlist (persisted locally) with a saved-only view toggle
+- **Shareable, refresh-safe searches** — the search lives in the URL and rehydrates on
+  reload; recent searches are one click away, and applied filters show as removable chips
+- **Accessible** — keyboard-visible focus rings and full `prefers-reduced-motion` support
+  (WCAG 2.1 AA)
 - **AI itinerary builder** — streams a day-by-day, budget-constrained itinerary over SSE
   using the real scraped prices (OpenRouter, model selectable in the UI)
 - **Supplementary AI trip planner** — a second AI source (RapidAPI) whose day plans are

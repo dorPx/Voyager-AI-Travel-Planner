@@ -15,7 +15,9 @@ import ToastViewport from './ToastViewport';
 import { Spinner } from './shared';
 import { usePricePolling } from './usePricePolling';
 import { filterHotels, filterByRatingAndSource, countActiveFilters } from './filters';
-import type { SortOption } from '@/context/SearchContext';
+import ActiveFilters from './ActiveFilters';
+import { useFavorites } from '@/context/FavoritesContext';
+import { DEFAULT_FILTERS, type SortOption } from '@/context/SearchContext';
 import MapToggle from '@/components/map/MapToggle';
 import FilterSidebar from './FilterSidebar';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -92,12 +94,14 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 function ResultsContainerInner() {
   const { results, loading, error, banner, lastParams, setResults, filters, setFilters } = useSearch();
+  const { favoriteIds, count: savedCount } = useFavorites();
   const searchParams = useSearchParams();
   const showMap = searchParams.get('map') === '1';
 
   const [compareList, setCompareList] = useState<HotelResult[]>([]);
   const [priceDrops, setPriceDrops] = useState<Record<string, number>>({});
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
 
   const toggleCompare = useCallback((hotel: HotelResult) => {
     setCompareList((prev) => {
@@ -159,14 +163,18 @@ function ResultsContainerInner() {
       ? 'grid grid-cols-1 xl:grid-cols-2 gap-4'
       : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4';
 
+    // "Saved only" is a view toggle layered on top of the sidebar filters.
+    const visibleHotels = showSavedOnly ? filtered.hotels.filter((h) => favoriteIds.has(h.id)) : filtered.hotels;
+    const filtersActive = activeFilterCount > 0;
+
     const tabList: ResultsTab[] = [
       {
         id: 'hotels',
         label: 'Hotels',
-        count: filtered.hotels.length,
+        count: visibleHotels.length,
         content: (
           <div className="flex flex-col gap-3">
-            {filtered.hotels.map((h, i) => (
+            {visibleHotels.map((h, i) => (
               <Staggered key={h.id} index={i}>
                 <HotelCard
                   {...h}
@@ -178,8 +186,36 @@ function ResultsContainerInner() {
                 />
               </Staggered>
             ))}
-            {filtered.hotels.length === 0 && (
-              <p className="text-sm text-brand-mid py-8 text-center">No hotels match the current filters.</p>
+            {visibleHotels.length === 0 && (
+              <div className="py-12 text-center">
+                {showSavedOnly ? (
+                  <>
+                    <p className="text-sm font-medium text-brand-black mb-1">No saved hotels in this search</p>
+                    <p className="text-sm text-brand-mid mb-3">Tap the heart on any hotel to save it here.</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowSavedOnly(false)}
+                      className="text-sm font-semibold text-sky-400 hover:text-sky-500 hover:underline"
+                    >
+                      Show all hotels
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-brand-black mb-1">No hotels match your filters</p>
+                    <p className="text-sm text-brand-mid mb-3">Try widening your price range or removing a filter.</p>
+                    {filtersActive && (
+                      <button
+                        type="button"
+                        onClick={() => setFilters({ ...DEFAULT_FILTERS, sortBy: filters.sortBy })}
+                        className="text-sm font-semibold text-sky-400 hover:text-sky-500 hover:underline"
+                      >
+                        Clear all filters
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
         ),
@@ -234,7 +270,7 @@ function ResultsContainerInner() {
     }
 
     return tabList;
-  }, [filtered, showMap, compareList, priceDrops, toggleCompare]);
+  }, [filtered, showMap, compareList, priceDrops, toggleCompare, showSavedOnly, favoriteIds, activeFilterCount, filters, setFilters]);
 
   if (loading) return <SkeletonList />;
 
@@ -281,6 +317,23 @@ function ResultsContainerInner() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {savedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowSavedOnly((v) => !v)}
+              aria-pressed={showSavedOnly}
+              className={`flex items-center gap-1.5 border rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                showSavedOnly
+                  ? 'bg-rose-500 border-rose-500 text-white'
+                  : 'bg-white border-beige-300 text-brand-black hover:border-rose-300'
+              }`}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={showSavedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+              </svg>
+              Saved {savedCount}
+            </button>
+          )}
           <label className="flex items-center gap-1.5 border border-beige-300 bg-white rounded-lg pl-3 pr-2 py-1.5">
             <span className="text-xs font-medium text-brand-mid whitespace-nowrap">Sort by:</span>
             <select
@@ -310,6 +363,9 @@ function ResultsContainerInner() {
           <MapToggle />
         </div>
       </div>
+
+      {/* Removable chips for each applied filter */}
+      <ActiveFilters hotels={results.hotels} />
 
       {/* Filters rail + results column, both in normal document flow */}
       <div className="mt-4 flex items-start gap-6">
