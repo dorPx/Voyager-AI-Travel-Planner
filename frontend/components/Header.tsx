@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useCurrency, CURRENCIES, type Currency } from '@/context/CurrencyContext';
 
 function PlaneIcon() {
   return (
@@ -23,6 +25,7 @@ function PlaneIcon() {
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
+  const { currency, setCurrency } = useCurrency();
 
   useEffect(() => {
     function onScroll() {
@@ -47,13 +50,28 @@ export default function Header() {
 
         <div className="flex-1" />
 
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-4 sm:gap-6">
           <Link href="/itinerary" className="hidden sm:inline text-sm font-medium text-brand-mid hover:text-brand-black transition-colors">
             Build Itinerary
           </Link>
           <Link href="/trips" className="hidden sm:inline text-sm font-medium text-brand-mid hover:text-brand-black transition-colors">
             Saved Trips
           </Link>
+          <label className="flex items-center">
+            <span className="sr-only">Display currency</span>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as Currency)}
+              className="text-xs font-semibold text-brand-black bg-white border border-beige-300 rounded-lg px-2 py-1.5 cursor-pointer focus:outline-none hover:border-brand-mid transition-colors"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <ThemeToggle />
         </nav>
       </div>
     </header>

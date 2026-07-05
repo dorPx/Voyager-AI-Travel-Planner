@@ -85,6 +85,38 @@ export interface TripItinerary {
   days: ItineraryDay[];
   total_cost: number;
   trip_type: string;
+  /** Public read-only share token — safe to expose, grants view access only. */
+  share_id?: string;
+}
+
+/** One day of forecast for the trip window (Open-Meteo, metric). */
+export interface WeatherDay {
+  date: string;
+  temp_max_c: number;
+  temp_min_c: number;
+  /** 0-100, max daily probability. */
+  precipitation_probability: number;
+  /** WMO weather interpretation code. */
+  weather_code: number;
+}
+
+/** USD-based exchange rates (frankfurter.app / ECB). Always contains USD: 1. */
+export interface CurrencyRates {
+  base: 'USD';
+  rates: Record<string, number>;
+  fetched_at: number;
+}
+
+/** One recorded price observation for a hotel (dedup key = lowercased name + destination). */
+export interface PricePoint {
+  price: number;
+  observed_at: number;
+}
+
+export interface PackingList {
+  categories: { name: string; items: string[] }[];
+  /** "ai" when OpenRouter produced it, "fallback" for the deterministic list. */
+  generated_by: 'ai' | 'fallback';
 }
 
 export interface TripSummary {

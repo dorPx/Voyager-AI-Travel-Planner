@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import AIPanel from '@/components/itinerary/AIPanel';
 import DayBuilder from '@/components/itinerary/DayBuilder';
 import ToastViewport from '@/components/results/ToastViewport';
 import { showToast } from '@/components/results/toast';
 import { toTripItinerary, type DayBuilderDay } from '@/components/itinerary/utils';
+import { useWeather } from '@/components/WeatherStrip';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import type { WeatherDay } from '../../../shared/types';
 
 export default function ItineraryPage() {
   const [tripName, setTripName] = useState('My Trip');
@@ -15,7 +17,20 @@ export default function ItineraryPage() {
   const [tripType, setTripType] = useState('leisure');
   const [days, setDays] = useState<DayBuilderDay[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [shareId, setShareId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [budget, setBudget] = useState(2000);
+
+  // Forecast for the builder's date range — one fetch, mapped per date for
+  // the day headers. Renders nothing when dates are unset or unforecastable.
+  const firstDate = days.find((d) => d.date)?.date;
+  const lastDate = [...days].reverse().find((d) => d.date)?.date;
+  const weatherDays = useWeather(destination || undefined, firstDate, lastDate);
+  const weatherByDate = useMemo(() => {
+    const map: Record<string, WeatherDay> = {};
+    for (const w of weatherDays) map[w.date] = w;
+    return map;
+  }, [weatherDays]);
 
   function handleAdopt({
     destination: dest,
@@ -31,12 +46,14 @@ export default function ItineraryPage() {
     setTripName(`${dest} Trip`);
     setDays(seededDays);
     setSavedId(null);
+    setShareId(null);
     showToast(`Adopted a ${seededDays.length}-day plan for ${dest}`);
   }
 
   function handleDaysChange(next: DayBuilderDay[]) {
     setDays(next);
     setSavedId(null);
+    setShareId(null);
   }
 
   async function handleSave() {
@@ -54,6 +71,7 @@ export default function ItineraryPage() {
       const itinerary = toTripItinerary(days, destination, tripType, tripName);
       const saved = await api.itinerary.save(itinerary);
       setSavedId(saved.id);
+      setShareId(saved.share_id ?? null);
       showToast('Saved!');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Could not save itinerary.');
@@ -67,14 +85,34 @@ export default function ItineraryPage() {
     window.open(api.itinerary.exportPdfUrl(savedId), '_blank', 'noopener,noreferrer');
   }
 
-  function handleExportJson() {
-    if (!savedId) return;
+  function downloadUrl(href: string) {
     const a = document.createElement('a');
-    a.href = api.itinerary.exportJsonUrl(savedId);
+    a.href = href;
     a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  }
+
+  function handleExportJson() {
+    if (!savedId) return;
+    downloadUrl(api.itinerary.exportJsonUrl(savedId));
+  }
+
+  function handleExportIcs() {
+    if (!savedId) return;
+    downloadUrl(api.itinerary.exportIcsUrl(savedId));
+  }
+
+  async function handleShare() {
+    if (!shareId) return;
+    const link = `${window.location.origin}/share/${shareId}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Read-only link copied to clipboard');
+    } catch {
+      showToast(link);
+    }
   }
 
   return (
@@ -116,6 +154,12 @@ export default function ItineraryPage() {
               savedId={savedId}
               onExportPdf={handleExportPdf}
               onExportJson={handleExportJson}
+              onExportIcs={handleExportIcs}
+              onShare={handleShare}
+              canShare={Boolean(shareId)}
+              budget={budget}
+              onBudgetChange={setBudget}
+              weatherByDate={weatherByDate}
             />
           )}
         </div>

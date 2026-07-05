@@ -10,6 +10,50 @@
   --color-beige: #F5F0E8;
   --color-surface: #FFFFFF;
   --color-muted: #5F5E5A;
+
+  /* Palette tokens ("R G B") consumed by tailwind.config.ts. Light theme. */
+  --c-surface: 255 255 255;
+  --c-sky-50: 240 249 255;
+  --c-sky-100: 181 212 244;
+  --c-sky-200: 133 183 235;
+  --c-sky-300: 55 138 221;
+  --c-sky-400: 24 95 165;
+  --c-sky-500: 12 68 124;
+  --c-beige-50: 253 250 245;
+  --c-beige-100: 245 240 232;
+  --c-beige-200: 237 229 213;
+  --c-beige-300: 217 205 184;
+  --c-brand-black: 26 26 26;
+  --c-brand-dark: 44 44 42;
+  --c-brand-mid: 95 94 90;
+}
+
+/* Dark theme — the beige warmth becomes near-neutral charcoals, text tokens
+   invert, and the sky accents lighten so link text keeps AA contrast on the
+   dark page background. */
+.dark {
+  color-scheme: dark;
+  --color-primary: #5B9BDF;
+  --c-surface: 35 35 39;
+  --c-sky-50: 28 42 60;
+  --c-sky-100: 38 56 80;
+  --c-sky-200: 74 116 166;
+  --c-sky-300: 84 148 219;
+  --c-sky-400: 91 155 223;
+  --c-sky-500: 133 183 235;
+  --c-beige-50: 30 30 34;
+  --c-beige-100: 22 22 25;
+  --c-beige-200: 45 45 51;
+  --c-beige-300: 60 60 67;
+  --c-brand-black: 238 236 232;
+  --c-brand-dark: 219 217 213;
+  --c-brand-mid: 162 160 154;
+}
+
+/* `white` is themed as the surface token, but "white text on an accent" must
+   stay literally white in dark mode (button labels, hearts, badges). */
+.dark .text-white {
+  color: #fff;
 }
 
 @layer base {
@@ -90,6 +134,11 @@
   background: linear-gradient(90deg, #EDE5D5 25%, #F5F0E8 37%, #EDE5D5 63%);
   background-size: 400% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, #2D2D33 25%, #3C3C43 37%, #2D2D33 63%);
+  background-size: 400% 100%;
 }
 
 /* Card entrance: fade in + slide up, staggered per-card via inline animationDelay */

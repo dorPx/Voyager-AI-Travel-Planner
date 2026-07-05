@@ -1,5 +1,8 @@
+'use client';
+
 import type { FlightResult } from '../../../shared/types';
 import { formatDuration, formatTime } from './shared';
+import { useCurrency } from '@/context/CurrencyContext';
 
 function stopsBadge(stops: number) {
   if (stops === 0) {
@@ -14,6 +17,7 @@ function stopsBadge(stops: number) {
 export default function FlightCard(props: FlightResult) {
   const { airline, price, departure, arrival, duration_minutes, stops } = props;
   const badge = stopsBadge(stops);
+  const { format } = useCurrency();
 
   return (
     <div className="bg-white rounded-xl border-[0.5px] border-beige-300 p-4 flex items-center justify-between gap-4 hover:shadow-lg transition-shadow">
@@ -35,7 +39,7 @@ export default function FlightCard(props: FlightResult) {
         {badge.label}
       </span>
 
-      <span className="text-xl font-bold text-sky-400 whitespace-nowrap">${price.toFixed(0)}</span>
+      <span className="text-xl font-bold text-sky-400 whitespace-nowrap">{format(price)}</span>
     </div>
   );
 }

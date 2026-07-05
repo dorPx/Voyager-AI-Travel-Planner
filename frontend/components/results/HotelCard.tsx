@@ -1,18 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { HotelResult } from '../../../shared/types';
+import type { HotelResult, PricePoint } from '../../../shared/types';
 import { AmenityChip } from './shared';
 import { useSearch } from '@/context/SearchContext';
 import { useFavorites } from '@/context/FavoritesContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { sourceLabel } from '@/lib/sourceLabel';
+import { TrendBadge, computeTrend } from './PriceTrend';
 
 export interface HotelCardProps extends HotelResult {
   selected: boolean;
   onSelect: () => void;
   onCompare: () => void;
+  /** Opens the full details modal for this hotel. */
+  onDetails?: () => void;
   /** Prior price, if the live-price poller detected a drop — renders the "Price dropped!" badge. */
   previousPrice?: number;
+  /** Cross-session price observations (oldest first) — renders the trend badge. */
+  history?: PricePoint[];
   /**
    * Force the vertical (mobile) layout regardless of viewport. Used in map
    * mode, where the list column is narrow but the viewport is wide — Tailwind
@@ -53,21 +59,34 @@ export default function HotelCard(props: HotelCardProps) {
     selected,
     onSelect,
     onCompare,
+    onDetails,
     previousPrice,
+    history,
     stacked = false,
   } = props;
 
   const { setHoveredHotelId, lastParams } = useSearch();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { format } = useCurrency();
   const saved = isFavorite(id);
   // Strip the presentational props (callbacks, flags) so only the HotelResult
   // shape is persisted to the favorites store.
-  const { selected: _s, onSelect: _os, onCompare: _oc, previousPrice: _pp, stacked: _st, ...hotel } = props;
+  const {
+    selected: _s,
+    onSelect: _os,
+    onCompare: _oc,
+    onDetails: _od,
+    previousPrice: _pp,
+    history: _h,
+    stacked: _st,
+    ...hotel
+  } = props;
   const [imgError, setImgError] = useState(false);
   const showImage = image_url && !imgError;
   const hasPrice = price_per_night > 0;
   const hasRating = rating > 0;
   const priceDropped = hasPrice && typeof previousPrice === 'number' && previousPrice > price_per_night;
+  const trend = computeTrend(price_per_night, history);
 
   // Booking.com prices the whole stay: "$1,432 · 7 nights, 2 adults".
   const nights = nightsBetween(lastParams?.checkin, lastParams?.checkout);
@@ -211,13 +230,18 @@ export default function HotelCard(props: HotelCardProps) {
               )}
               <div className={`flex items-baseline gap-1.5 ${stacked ? '' : 'sm:justify-end'}`}>
                 {priceDropped && nights > 0 && (
-                  <span className="text-sm text-brand-mid line-through">${(previousPrice! * nights).toFixed(0)}</span>
+                  <span className="text-sm text-brand-mid line-through">{format(previousPrice! * nights)}</span>
                 )}
-                <span className="text-2xl font-bold text-brand-black">${totalPrice.toFixed(0)}</span>
+                <span className="text-2xl font-bold text-brand-black">{format(totalPrice)}</span>
               </div>
               <span className="text-xs text-brand-mid">
-                {nights > 0 ? `$${price_per_night.toFixed(0)} per night` : 'per night'}
+                {nights > 0 ? `${format(price_per_night)} per night` : 'per night'}
               </span>
+              {trend && (
+                <span className={`mt-1 self-start ${stacked ? '' : 'sm:self-end'}`}>
+                  <TrendBadge trend={trend} />
+                </span>
+              )}
             </>
           ) : (
             <span className="text-sm text-brand-mid italic">Price unavailable</span>
@@ -245,6 +269,17 @@ export default function HotelCard(props: HotelCardProps) {
           >
             {selected ? 'Comparing ✓' : 'Compare'}
           </button>
+          {onDetails && (
+            <button
+              type="button"
+              onClick={onDetails}
+              className={`text-sm font-semibold text-sky-400 hover:text-sky-500 hover:underline px-2 py-2 whitespace-nowrap ${
+                stacked ? '' : 'sm:py-1'
+              }`}
+            >
+              Details
+            </button>
+          )}
         </div>
       </div>
     </article>

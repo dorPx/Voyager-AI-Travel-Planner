@@ -9,6 +9,7 @@ import { scrapeAirbnb } from './rapidapi/airbnb';
 import { scrapeDuffelFlights } from './duffel';
 import { scrapeGooglePlaces } from './google';
 import { fillMissingHotelCoords, fillHotelDistances } from './geocode';
+import { recordHotelPrices } from '../services/priceHistory.service';
 import type {
   SearchParams,
   HotelResult,
@@ -174,6 +175,10 @@ export async function runScrapers(params: SearchParams): Promise<CachedPayload> 
     await fillMissingHotelCoords(dedupeHotels(allHotels), destination),
     destination
   );
+
+  // Cross-session price memory — every fresh scrape (initial search, poll
+  // refresh, background refresh) contributes an observation.
+  recordHotelPrices(destination, hotels);
 
   return {
     hotels,

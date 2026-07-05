@@ -1,6 +1,7 @@
 'use client';
 
 import type { HotelResult } from '../../../shared/types';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface ComparisonTableProps {
   hotels: HotelResult[];
@@ -30,6 +31,7 @@ function bestValueId(hotels: HotelResult[]): string | null {
 export default function ComparisonTable({ hotels, onRemove, onClear }: ComparisonTableProps) {
   const allAmenities = Array.from(new Set(hotels.flatMap((h) => h.amenities))).sort();
   const bestId = bestValueId(hotels);
+  const { format } = useCurrency();
 
   const colClass = (id: string) => (id === bestId ? 'bg-sky-50' : '');
 
@@ -75,7 +77,7 @@ export default function ComparisonTable({ hotels, onRemove, onClear }: Compariso
               <td className="px-3 py-2 text-xs font-medium text-brand-mid bg-white sticky left-0">Price</td>
               {hotels.map((h) => (
                 <td key={h.id} className={`px-3 py-2 font-semibold text-sky-400 ${colClass(h.id)}`}>
-                  ${h.price_per_night.toFixed(0)}/night
+                  {format(h.price_per_night)}/night
                 </td>
               ))}
             </tr>

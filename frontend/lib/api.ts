@@ -6,6 +6,10 @@ import {
   RestaurantResult,
   TripItinerary,
   TripSummary,
+  CurrencyRates,
+  WeatherDay,
+  PricePoint,
+  PackingList,
 } from '../../shared/types';
 import type { ModelOption } from '../context/ModelContext';
 import type { SearchResults } from '../context/SearchContext';
@@ -132,9 +136,54 @@ export const api = {
     list: () => get<TripSummary[]>('/api/itinerary'),
     save: (trip: Omit<TripItinerary, 'id'>) => post<TripItinerary>('/api/itinerary', trip),
     get: (id: string) => get<TripItinerary>(`/api/itinerary/${id}`),
+    getShared: (shareId: string) => get<TripItinerary>(`/api/itinerary/shared/${shareId}`),
     exportJsonUrl: (id: string) => `${BASE}/api/itinerary/${id}/export?format=json`,
     exportPdfUrl: (id: string) => `${BASE}/api/itinerary/${id}/export?format=pdf`,
+    exportIcsUrl: (id: string) => `${BASE}/api/itinerary/${id}/export?format=ics`,
   },
+
+  // Display-only USD exchange rates — fail-soft to USD-only so a rates outage
+  // can never break price rendering.
+  getCurrencyRates: async (): Promise<CurrencyRates> => {
+    try {
+      return await get<CurrencyRates>('/api/currency/rates');
+    } catch {
+      return { base: 'USD', rates: { USD: 1 }, fetched_at: Date.now() };
+    }
+  },
+
+  // Trip-window forecast — [] on any failure; callers render nothing.
+  getWeather: async (destination: string, start: string, end: string): Promise<WeatherDay[]> => {
+    try {
+      const data = await get<{ days: WeatherDay[] }>(
+        `/api/weather?destination=${encodeURIComponent(destination)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
+      );
+      return Array.isArray(data.days) ? data.days : [];
+    } catch {
+      return [];
+    }
+  },
+
+  // Cross-session price observations, keyed by lowercased hotel name.
+  getPriceHistory: async (destination: string, names: string[]): Promise<Record<string, PricePoint[]>> => {
+    try {
+      const data = await post<{ history: Record<string, PricePoint[]> }>('/api/price-history', {
+        destination,
+        names,
+      });
+      return data.history ?? {};
+    } catch {
+      return {};
+    }
+  },
+
+  packingList: (payload: {
+    destination: string;
+    start_date?: string;
+    end_date?: string;
+    trip_type?: string;
+    activities?: string[];
+  }) => post<PackingList>('/api/ai/packing-list', payload),
 
   /**
    * Consumes the recommend/stream SSE endpoint. Native EventSource can't be used

@@ -13,12 +13,12 @@ const GEO_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 // the map's top-20 view need coordinates urgently, and results are cached.
 const MAX_LOOKUPS_PER_SEARCH = 20;
 
-interface GeocodeLocation {
+export interface GeocodeLocation {
   lat: number;
   lng: number;
 }
 
-async function geocode(query: string): Promise<GeocodeLocation | null> {
+export async function geocode(query: string): Promise<GeocodeLocation | null> {
   const cacheKey = `geo:${query.toLowerCase()}`;
   const cached = cache.get<GeocodeLocation | 'miss'>(cacheKey);
   if (cached === 'miss') return null; // negative-cache failed lookups too

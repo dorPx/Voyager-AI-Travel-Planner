@@ -4,8 +4,13 @@ import './globals.css';
 import { ModelProvider } from '@/context/ModelContext';
 import { SearchProvider } from '@/context/SearchContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
+import { CurrencyProvider } from '@/context/CurrencyContext';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
+
+// Applies the saved (or OS) theme before first paint — parser-blocking on
+// purpose so a dark-mode user never sees a white flash.
+const themeInitScript = `(function(){try{var t=localStorage.getItem('voyager:theme');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: 'Voyager — AI Vacation Planner',
@@ -14,11 +19,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <ModelProvider>
           <SearchProvider>
             <FavoritesProvider>
+            <CurrencyProvider>
             <Header />
 
             <main className="pt-16 pb-16 lg:pb-0 min-h-screen">{children}</main>
@@ -39,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </footer>
 
             <BottomNav />
+            </CurrencyProvider>
             </FavoritesProvider>
           </SearchProvider>
         </ModelProvider>

@@ -1,6 +1,12 @@
 import type { Config } from 'tailwindcss';
 
+// The palette lives in CSS variables (globals.css) so dark mode can retheme
+// every token — including `white`, which acts as the card/surface color — by
+// flipping variables under `.dark` instead of touching every component.
+const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+
 const config: Config = {
+  darkMode: 'class',
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,24 +15,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        white: v('--c-surface'),
         sky: {
-          50: '#f0f9ff',
-          100: '#B5D4F4',
-          200: '#85B7EB',
-          300: '#378ADD',
-          400: '#185FA5',
-          500: '#0C447C',
+          50: v('--c-sky-50'),
+          100: v('--c-sky-100'),
+          200: v('--c-sky-200'),
+          300: v('--c-sky-300'),
+          400: v('--c-sky-400'),
+          500: v('--c-sky-500'),
         },
         beige: {
-          50: '#FDFAF5',
-          100: '#F5F0E8',
-          200: '#EDE5D5',
-          300: '#D9CDB8',
+          50: v('--c-beige-50'),
+          100: v('--c-beige-100'),
+          200: v('--c-beige-200'),
+          300: v('--c-beige-300'),
         },
         brand: {
-          black: '#1A1A1A',
-          dark: '#2C2C2A',
-          mid: '#5F5E5A',
+          black: v('--c-brand-black'),
+          dark: v('--c-brand-dark'),
+          mid: v('--c-brand-mid'),
         },
       },
       fontFamily: {

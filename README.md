@@ -28,6 +28,32 @@ the result.
   search-summary bar on scroll
 - **Accessible** — keyboard-visible focus rings, ARIA combobox autocomplete, and full
   `prefers-reduced-motion` support (WCAG 2.1 AA)
+- **Price history & trends** — every scrape records prices to SQLite, so hotel cards can
+  show an honest "↓ 12% vs 3 days ago" badge and a sparkline once a hotel has been seen
+  before (complements the in-session price-drop polling with cross-session memory)
+- **Hotel details modal** — full amenity list, rating breakdown, distance, price-history
+  sparkline, and a Google Maps link, all from already-fetched data (no extra provider call)
+- **Currency switcher** — view every price in EUR, GBP, JPY, ILS, AUD, or CAD (keyless
+  ECB rates via frankfurter.app, cached 12h); conversions are display-only and marked "≈" —
+  the bookable USD price stays authoritative
+- **Weather for your dates** — daily forecast chips on the results page and per-day in the
+  itinerary builder (keyless Open-Meteo, up to 16 days out; unforecastable dates simply
+  render nothing)
+- **Trip budget tracker** — set a budget in the itinerary builder and watch a
+  green→amber→red bar fill with a live "left / over" delta as you add stays, meals, and
+  activities
+- **Walking distances between stops** — "0.9 km · ~12 min walk" (or drive-time) connectors
+  between consecutive itinerary stops, computed from real coordinates and hidden when
+  coordinates are missing — never guessed
+- **Share a trip** — every saved itinerary gets a public read-only `/share/<token>` link,
+  one click to copy
+- **Calendar export** — download any saved itinerary as `.ics` (one all-day event per trip
+  day, RFC 5545-compliant) alongside the existing JSON and PDF exports
+- **AI packing list** — a weather- and activity-aware checklist per saved trip
+  (OpenRouter), with a deterministic fallback when the key is missing; checked items
+  persist locally
+- **Dark mode** — system / light / dark toggle in the header, persisted, flash-free on
+  load, honoring `prefers-color-scheme`
 - **AI itinerary builder** — streams a day-by-day, budget-constrained itinerary over SSE
   using the real scraped prices (OpenRouter, model selectable in the UI)
 - **Supplementary AI trip planner** — a second AI source (RapidAPI) whose day plans are
@@ -97,6 +123,9 @@ npm run dev        # backend :4000 + frontend :3000 via concurrently
 | `DUFFEL_API_KEY` | Flight offers | [duffel.com](https://duffel.com) — a `duffel_test_` key returns realistic synthetic offers |
 | `NEXT_PUBLIC_API_URL` | Where the browser reaches the backend | `http://localhost:4000` unless you moved it |
 | `PORT`, `CACHE_TTL_SECONDS`, `CORS_ORIGIN`, `OPENROUTER_FALLBACK_MODEL` | Optional tuning | Sensible defaults in code |
+
+Weather (Open-Meteo) and currency rates (frankfurter.app / ECB) are **keyless** — they
+work on every install with no configuration and fail soft like every other source.
 
 **RapidAPI subscriptions used** (all under your one `RAPIDAPI_KEY`): `booking-com15`
 (hotels + destination search — the workhorse; a paid tier is recommended, free tier quota

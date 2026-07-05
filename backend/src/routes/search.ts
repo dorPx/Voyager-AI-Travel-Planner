@@ -16,6 +16,7 @@ import {
 import { rapidApiHeaders } from '../scrapers/rapidapi/client';
 import { scrapeBookingHotels } from '../scrapers/rapidapi/booking';
 import { fillHotelDistances } from '../scrapers/geocode';
+import { recordHotelPrices } from '../services/priceHistory.service';
 import type { HotelResult } from '../../../shared/types';
 
 const router = Router();
@@ -179,6 +180,7 @@ router.post('/more', async (req: Request, res: Response) => {
   try {
     const hotels = await scrapeBookingHotels(destination, checkin, checkout, { adults, children, rooms }, pageNum);
     await fillHotelDistances(hotels, destination);
+    recordHotelPrices(destination, hotels);
     cache.set(cacheKey, hotels, MORE_CACHE_TTL_SECONDS);
     console.log(`[search/more] ${destination} page ${pageNum}: ${hotels.length} hotels`);
     return res.json({ hotels, page: pageNum });

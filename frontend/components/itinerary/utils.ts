@@ -85,6 +85,58 @@ export function dayHasHotel(day: DayBuilderDay): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Distances between consecutive stops — straight-line haversine, shown as
+// "0.9 km · ~12 min walk" connectors. Hints only appear when both stops have
+// real coordinates; nothing is ever estimated from a missing lat/lng.
+// ---------------------------------------------------------------------------
+
+const EARTH_RADIUS_KM = 6371;
+const WALK_KMH = 4.8;
+const DRIVE_KMH = 30; // urban average, good enough for a hint
+const MAX_WALK_KM = 2.5;
+
+interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+function hasCoords(p: LatLng): boolean {
+  return Boolean(p.lat || p.lng);
+}
+
+export function haversineKm(a: LatLng, b: LatLng): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Human-readable travel hint between two stops, or null when either lacks
+ * coordinates or they're effectively at the same spot.
+ */
+export function transitHint(from: LatLng, to: LatLng): string | null {
+  if (!hasCoords(from) || !hasCoords(to)) return null;
+  const km = haversineKm(from, to);
+  if (km < 0.05) return null;
+
+  const distance = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+  if (km <= MAX_WALK_KM) {
+    const minutes = Math.max(1, Math.round((km / WALK_KMH) * 60));
+    return `${distance} · ~${minutes} min walk`;
+  }
+  const minutes = Math.max(1, Math.round((km / DRIVE_KMH) * 60));
+  return `${distance} · ~${minutes} min drive`;
+}
+
+/** Flattens a builder day into its display order (morning → afternoon → evening). */
+export function dayItemsInOrder(day: DayBuilderDay): TimeSlotItem[] {
+  return [...day.morning, ...day.afternoon, ...day.evening];
+}
+
+// ---------------------------------------------------------------------------
 // Conversion to the backend's wire format
 // ---------------------------------------------------------------------------
 

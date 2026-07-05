@@ -25,6 +25,7 @@ interface TripRow {
   trip_type: string;
   itinerary_json: string;
   created_at: string;
+  share_id: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,8 +53,8 @@ class ItineraryService {
     const endDate = saved.days[saved.days.length - 1]?.date ?? '';
 
     db.prepare(`
-      INSERT INTO trips (id, name, destination, start_date, end_date, budget_usd, trip_type, itinerary_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO trips (id, name, destination, start_date, end_date, budget_usd, trip_type, itinerary_json, created_at, share_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       saved.name ?? `${saved.destination} Trip`,
@@ -63,17 +64,31 @@ class ItineraryService {
       saved.total_cost ?? 0,
       saved.trip_type ?? 'leisure',
       JSON.stringify(saved),
-      new Date().toISOString()
+      new Date().toISOString(),
+      randomUUID()
     );
 
     return id;
   }
 
   getTrip(id: string): TripItinerary | null {
-    const row = db.prepare('SELECT * FROM trips WHERE id = ?').get(id) as TripRow | undefined;
-    if (!row) return null;
+    const row = this.getTripRow(id);
+    return row ? this.rowToItinerary(row) : null;
+  }
+
+  /** Read-only lookup by public share token. */
+  getTripByShareId(shareId: string): TripItinerary | null {
+    const row = db.prepare('SELECT * FROM trips WHERE share_id = ?').get(shareId) as TripRow | undefined;
+    return row ? this.rowToItinerary(row) : null;
+  }
+
+  private rowToItinerary(row: TripRow): TripItinerary | null {
     try {
-      return JSON.parse(row.itinerary_json) as TripItinerary;
+      const trip = JSON.parse(row.itinerary_json) as TripItinerary;
+      // share_id lives on the row, not in the stored JSON — surface it so the
+      // frontend can build share links without a second endpoint.
+      if (row.share_id) trip.share_id = row.share_id;
+      return trip;
     } catch {
       return null;
     }
@@ -105,6 +120,80 @@ class ItineraryService {
     const trip = this.getTrip(id);
     if (!trip) throw new Error('Trip not found');
     return JSON.stringify(trip, null, 2);
+  }
+
+  // -------------------------------------------------------------------------
+  // ICS (iCalendar) export — one all-day event per trip day, importable into
+  // Google/Apple/Outlook calendars. Hand-rolled (RFC 5545 is tiny at this
+  // scale): CRLF line endings, 75-octet folding, escaped text.
+  // -------------------------------------------------------------------------
+
+  exportToICS(id: string): string {
+    const trip = this.getTrip(id);
+    if (!trip) throw new Error('Trip not found');
+
+    const events = trip.days
+      .filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day.date))
+      .map((day) => this.dayToVevent(trip, day));
+
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Voyager//AI Vacation Planner//EN',
+      'CALSCALE:GREGORIAN',
+      ...events.flat(),
+      'END:VCALENDAR',
+    ];
+
+    return lines.map((l) => this.foldIcsLine(l)).join('\r\n') + '\r\n';
+  }
+
+  private dayToVevent(trip: TripItinerary, day: ItineraryDay): string[] {
+    const date = day.date.replace(/-/g, '');
+    // All-day events end on the following day per RFC 5545 (DTEND exclusive).
+    const next = new Date(day.date);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const dateEnd = next.toISOString().slice(0, 10).replace(/-/g, '');
+
+    const parts: string[] = [];
+    if (day.hotel) parts.push(`Hotel: ${day.hotel.name}`);
+    if (day.activities.length) parts.push(`Activities: ${day.activities.map((a) => a.name).join(', ')}`);
+    if (day.meals.length) parts.push(`Meals: ${day.meals.map((m) => m.name).join(', ')}`);
+    parts.push(`Estimated cost: $${day.estimated_cost.toLocaleString()}`);
+
+    return [
+      'BEGIN:VEVENT',
+      `UID:${trip.id}-day${day.day}@voyager`,
+      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`,
+      `DTSTART;VALUE=DATE:${date}`,
+      `DTEND;VALUE=DATE:${dateEnd}`,
+      `SUMMARY:${this.escapeIcsText(`${trip.name} — Day ${day.day}`)}`,
+      `LOCATION:${this.escapeIcsText(trip.destination)}`,
+      `DESCRIPTION:${this.escapeIcsText(parts.join('\n'))}`,
+      'END:VEVENT',
+    ];
+  }
+
+  private escapeIcsText(text: string): string {
+    return String(text ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+  }
+
+  private foldIcsLine(line: string): string {
+    // RFC 5545 3.1: lines over 75 octets fold with CRLF + single space.
+    // Splitting on UTF-16 units at 74 chars stays safely under 75 octets for
+    // the ASCII-dominant content here and never splits a surrogate pair thanks
+    // to Array.from's code-point iteration.
+    const chars = Array.from(line);
+    if (chars.length <= 74) return line;
+    const chunks: string[] = [];
+    for (let i = 0; i < chars.length; i += 74) {
+      chunks.push(chars.slice(i, i + 74).join(''));
+    }
+    return chunks.join('\r\n ');
   }
 
   // -------------------------------------------------------------------------

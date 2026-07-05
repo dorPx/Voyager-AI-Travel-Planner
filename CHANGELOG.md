@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+### Added — 10 features (currency, weather, history, sharing, dark mode & more)
+- **Currency switcher.** A header dropdown shows every price in EUR, GBP, JPY, ILS,
+  AUD, or CAD using keyless ECB rates (frankfurter.app, cached 12h, new
+  `GET /api/currency/rates`). Conversions are display-only and rendered with "≈";
+  USD stays authoritative, and a rates outage falls back to plain USD.
+- **Weather for your dates.** Daily forecast chips (hi/lo, condition, rain chance) on
+  the results page and per-day in the itinerary builder, via keyless Open-Meteo
+  (new `GET /api/weather`, cached 3h). Dates beyond the ~16-day forecast window
+  simply render nothing — no invented weather.
+- **Hotel details modal.** A "Details" action on each hotel card opens a full view —
+  photo, complete amenity list, rating, distance, price-history sparkline, Google
+  Maps link, booking CTA — built entirely from already-fetched data.
+- **Price history with trend badges.** Every fresh scrape (search, load-more, price
+  poll) records observations to a new SQLite `price_history` table; cards and the
+  details modal show "↓ 12% vs 3 days ago" badges plus a sparkline once a hotel has
+  prior observations (new `POST /api/price-history`).
+- **Trip budget tracker.** The itinerary builder's total bar gains an editable budget
+  and a green→amber→red progress bar with a live "left / over" delta.
+- **Calendar (.ics) export.** `GET /api/itinerary/:id/export?format=ics` produces an
+  RFC 5545 calendar (one all-day event per trip day, escaped and line-folded);
+  export buttons added in the builder and on saved trips.
+- **Shareable read-only trips.** Every saved trip gets a `share_id` token (existing
+  DBs migrated + backfilled); `GET /api/itinerary/shared/:shareId` and a new
+  `/share/[shareId]` page render it read-only, with copy-link buttons in the builder
+  and trip view.
+- **Dark mode.** System / light / dark toggle in the header. The palette moved to
+  CSS variables (including the `white` surface token), applied pre-hydration by an
+  inline script so there is no flash; honors `prefers-color-scheme` live.
+- **AI packing list.** A per-trip, weather- and activity-aware checklist
+  (`POST /api/ai/packing-list`, OpenRouter) with a deterministic fallback when the
+  key is missing or the model errors; checked items persist per trip in the browser.
+- **Walking distances between stops.** Haversine "0.9 km · ~12 min walk" (or
+  "~8 min drive") connectors between consecutive same-day stops in the builder and
+  trip views — only when both stops have real coordinates.
+
 ### Added — "Load more" hotel pagination
 - A **Load more hotels** button at the bottom of the hotel list fetches the next
   Booking.com results page (20 hotels per page, same "top picks" ordering and

@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { useSearch } from '@/context/SearchContext';
-import type { HotelResult } from '../../../shared/types';
+import type { HotelResult, PricePoint } from '../../../shared/types';
 import ResultsTabs, { type ResultsTab } from './ResultsTabs';
 import HotelCard from './HotelCard';
 import ActivityCard from './ActivityCard';
@@ -21,6 +21,8 @@ import { DEFAULT_FILTERS, type SortOption } from '@/context/SearchContext';
 import MapToggle from '@/components/map/MapToggle';
 import FilterSidebar from './FilterSidebar';
 import SearchSummaryBar from './SearchSummaryBar';
+import HotelDetailsModal from './HotelDetailsModal';
+import WeatherStrip from '@/components/WeatherStrip';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { distinctSourceLabels } from '@/lib/sourceLabel';
 import { api } from '@/lib/api';
@@ -106,6 +108,27 @@ function ResultsContainerInner() {
   const [priceDrops, setPriceDrops] = useState<Record<string, number>>({});
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [detailsHotel, setDetailsHotel] = useState<HotelResult | null>(null);
+
+  // Cross-session price history, keyed by lowercased hotel name. Fetched
+  // fail-soft after results land (and again as "Load more" extends the list).
+  const [priceHistory, setPriceHistory] = useState<Record<string, PricePoint[]>>({});
+  const hotelCount = results?.hotels.length ?? 0;
+  useEffect(() => {
+    if (!lastParams?.destination || !hotelCount) {
+      setPriceHistory({});
+      return;
+    }
+    let cancelled = false;
+    const names = (results?.hotels ?? []).slice(0, 60).map((h) => h.name);
+    api.getPriceHistory(lastParams.destination, names).then((history) => {
+      if (!cancelled) setPriceHistory(history);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastParams, hotelCount]);
 
   // "Load more" pagination — page 1 is the main search; more starts at 2.
   const [morePage, setMorePage] = useState(1);
@@ -228,7 +251,9 @@ function ResultsContainerInner() {
                   selected={compareList.some((c) => c.id === h.id)}
                   onSelect={() => toggleCompare(h)}
                   onCompare={() => toggleCompare(h)}
+                  onDetails={() => setDetailsHotel(h)}
                   previousPrice={priceDrops[h.id]}
+                  history={priceHistory[h.name.toLowerCase().trim()]}
                   stacked={showMap}
                 />
               </Staggered>
@@ -335,7 +360,7 @@ function ResultsContainerInner() {
     }
 
     return tabList;
-  }, [filtered, showMap, compareList, priceDrops, toggleCompare, showSavedOnly, favoriteIds, activeFilterCount, filters, setFilters, loadingMore, moreExhausted, handleLoadMore]);
+  }, [filtered, showMap, compareList, priceDrops, priceHistory, toggleCompare, showSavedOnly, favoriteIds, activeFilterCount, filters, setFilters, loadingMore, moreExhausted, handleLoadMore]);
 
   if (loading) return <SkeletonList />;
 
@@ -445,6 +470,11 @@ function ResultsContainerInner() {
         </div>
       </div>
 
+      {/* Forecast for the trip window — renders nothing when unforecastable */}
+      <div className="mt-2">
+        <WeatherStrip destination={lastParams?.destination} start={lastParams?.checkin} end={lastParams?.checkout} />
+      </div>
+
       {/* Removable chips for each applied filter */}
       <ActiveFilters hotels={results.hotels} />
 
@@ -483,6 +513,14 @@ function ResultsContainerInner() {
             <ComparisonTable hotels={compareList} onRemove={removeFromCompare} onClear={clearCompare} />
           </div>
         </div>
+      )}
+
+      {detailsHotel && (
+        <HotelDetailsModal
+          hotel={detailsHotel}
+          history={priceHistory[detailsHotel.name.toLowerCase().trim()]}
+          onClose={() => setDetailsHotel(null)}
+        />
       )}
 
       <ToastViewport />

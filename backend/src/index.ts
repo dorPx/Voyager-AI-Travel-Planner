@@ -10,6 +10,9 @@ import modelsRouter from './routes/models';
 import healthRouter from './routes/health';
 import aiRouter from './routes/ai';
 import tripsRouter from './routes/trips';
+import currencyRouter from './routes/currency';
+import weatherRouter from './routes/weather';
+import priceHistoryRouter from './routes/priceHistory';
 
 // Initialize DB on startup
 import './db';
@@ -30,6 +33,9 @@ app.use('/api/models', modelsRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/trips', tripsRouter);
+app.use('/api/currency', currencyRouter);
+app.use('/api/weather', weatherRouter);
+app.use('/api/price-history', priceHistoryRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

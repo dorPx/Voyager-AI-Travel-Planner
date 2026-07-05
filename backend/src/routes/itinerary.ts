@@ -30,6 +30,17 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/itinerary/shared/:shareId — read-only lookup by public share token
+// (registered before /:id so "shared" is never read as a trip id)
+// ---------------------------------------------------------------------------
+
+router.get('/shared/:shareId', (req: Request, res: Response) => {
+  const trip = itineraryService.getTripByShareId(req.params.shareId);
+  if (!trip) return res.status(404).json({ error: 'Shared trip not found' });
+  return res.json(trip);
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/itinerary/:id — full trip
 // ---------------------------------------------------------------------------
 
@@ -73,6 +84,18 @@ router.get('/:id/export', async (req: Request, res: Response) => {
     }
   }
 
+  if (format === 'ics') {
+    try {
+      const ics = itineraryService.exportToICS(id);
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="trip-${id}.ics"`);
+      return res.send(ics);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ error: message });
+    }
+  }
+
   if (format === 'pdf') {
     try {
       const pdfBuffer = await itineraryService.exportToPDF(id);
@@ -85,7 +108,7 @@ router.get('/:id/export', async (req: Request, res: Response) => {
     }
   }
 
-  return res.status(400).json({ error: 'Unsupported format. Use ?format=json or ?format=pdf' });
+  return res.status(400).json({ error: 'Unsupported format. Use ?format=json, ?format=pdf or ?format=ics' });
 });
 
 export default router;
