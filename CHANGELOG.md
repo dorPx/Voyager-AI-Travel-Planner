@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added — LiteAPI pre-booking detail view + accuracy-first prioritization
+- **Clickable hotel cards.** Clicking a hotel card (or its "View details") opens the detail
+  modal — the whole photo is now the primary trigger, with a "View details" hover cue.
+- **Rich LiteAPI detail (pre-booking view).** For a LiteAPI hotel the modal fetches deep
+  content for the active search dates via a new `POST /api/hotels/details`: a
+  keyboard-navigable photo gallery (up to 15 images with a thumbnail strip), the full
+  amenity list, an "About this hotel" description, check-in/out times, and a **Rooms &
+  rates** list — each room's name, board, refundability, and per-night + total price. This
+  is the information a traveler reviews before booking. Detail is cached ~30 min and
+  fail-soft (the modal falls back to basic card data). Non-LiteAPI sources return a graceful
+  404 and keep the existing basic view.
+- **LiteAPI handles more of the workload.** It now contributes a deeper list (up to 40
+  hotels) and is the accuracy-first source: its results are **floated to the top** of the
+  hotel list (preserving the chosen sort within each group), and it becomes the **base
+  record in dedupe** — its real name/photo/rating/content win, while a matching
+  Booking.com/etc. entry merges in (contributing a booking link and a lower price if it has
+  one). New `HotelDetails` / `HotelRoomOffer` shared types; "LiteAPI" added to the source
+  labels.
+
 ### Added — LiteAPI hotel source (real content + live rates)
 - **LiteAPI (Nuitée)** joins the hotel pipeline as the richest source yet: a single
   `POST /hotels/rates` returns both hotel content (name, photo, geocoded location, star

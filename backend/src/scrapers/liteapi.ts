@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { geocode } from './geocode';
-import type { HotelResult } from '../../../shared/types';
+import { cache } from '../db';
+import type { HotelResult, HotelDetails, HotelRoomOffer } from '../../../shared/types';
 
 // LiteAPI (Nuitée) — real hotel content + live rates in a single call. Unlike
 // the RapidAPI hotel sources, one POST /hotels/rates returns both a `hotels`
@@ -20,7 +21,10 @@ import type { HotelResult } from '../../../shared/types';
 
 const BASE = 'https://api.liteapi.travel/v3.0';
 const SEARCH_RADIUS_M = 20_000;
-const MAX_HOTELS = 30;
+// LiteAPI is the accuracy-first source, so let it contribute a deeper list
+// than the scraper-based sources.
+const MAX_HOTELS = 40;
+const DETAILS_CACHE_TTL_SECONDS = 30 * 60;
 
 interface Occupancy {
   adults?: number;
@@ -76,6 +80,7 @@ interface LiteApiHotelContent {
 }
 
 interface LiteApiRate {
+  name?: string;
   boardName?: string;
   boardType?: string;
   cancellationPolicies?: { refundableTag?: string };
@@ -192,5 +197,141 @@ export async function scrapeLiteApiHotels(
   } catch (err: unknown) {
     console.error('[liteapi] searchRates error:', err instanceof Error ? err.message : err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rich per-hotel detail (pre-booking view) — static content joined with live
+// room-level rates for the search dates. Content is combined with rates in one
+// assembled object, cached briefly (rates are date-specific). Fail-soft: null
+// on any error, so the modal falls back to the basic card data.
+// ---------------------------------------------------------------------------
+
+interface LiteApiContentDetail {
+  id?: string;
+  name?: string;
+  hotelDescription?: string;
+  hotelImportantInformation?: string;
+  checkinCheckoutTimes?: { checkin_start?: string; checkin?: string; checkout?: string };
+  hotelImages?: Array<{ url?: string; urlHd?: string }>;
+  main_photo?: string;
+  thumbnail?: string;
+  country?: string;
+  city?: string;
+  starRating?: number;
+  address?: string;
+  hotelFacilities?: string[];
+  facilities?: Array<{ name?: string } | string>;
+  rating?: number;
+  reviewCount?: number;
+}
+
+function stripHtml(html?: string): string {
+  return (html ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function collectPhotos(content: LiteApiContentDetail): string[] {
+  const urls = (content.hotelImages ?? [])
+    .map((img) => img.urlHd || img.url)
+    .filter((u): u is string => Boolean(u));
+  const withFallback = urls.length ? urls : [content.main_photo, content.thumbnail].filter((u): u is string => Boolean(u));
+  return [...new Set(withFallback)].slice(0, 15);
+}
+
+function collectAmenities(content: LiteApiContentDetail): string[] {
+  const raw: string[] = Array.isArray(content.hotelFacilities)
+    ? content.hotelFacilities
+    : (content.facilities ?? []).map((f) => (typeof f === 'string' ? f : f?.name ?? '')).filter(Boolean);
+  return [...new Set(raw.map((s) => s.trim()).filter(Boolean))].slice(0, 40);
+}
+
+function buildRoomOffers(entry: LiteApiRateEntry | undefined, nights: number): HotelRoomOffer[] {
+  if (!entry) return [];
+  const offers = (entry.roomTypes ?? [])
+    .map((rt) => {
+      const total = rt.offerRetailRate?.amount ?? 0;
+      const rate = rt.rates?.[0];
+      return {
+        name: rate?.name?.trim() || 'Room',
+        board: rate?.boardName?.trim() || 'Room Only',
+        refundable: rate?.cancellationPolicies?.refundableTag === 'RFN',
+        price_total: Math.round(total),
+        price_per_night: Math.round(total / nights),
+      };
+    })
+    .filter((o) => o.price_total > 0)
+    .sort((a, b) => a.price_total - b.price_total);
+  return offers.slice(0, 8);
+}
+
+export async function getLiteApiHotelDetails(
+  rawId: string,
+  checkin: string,
+  checkout: string,
+  occupancy: Occupancy = {}
+): Promise<HotelDetails | null> {
+  if (!process.env.LITEAPI_API_KEY) return null;
+  const hotelId = rawId.replace(/^liteapi-/, '');
+
+  const cacheKey = `liteapi-details:${hotelId}:${checkin}:${checkout}:${occupancy.adults ?? 2}:${occupancy.children ?? 0}:${occupancy.rooms ?? 1}`;
+  const cached = cache.get<HotelDetails>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const [contentRes, ratesRes] = await Promise.allSettled([
+      axios.get<{ data?: LiteApiContentDetail }>(`${BASE}/data/hotel`, {
+        params: { hotelId },
+        headers: liteApiHeaders(),
+        timeout: 20_000,
+      }),
+      axios.post<LiteApiRatesResponse>(
+        `${BASE}/hotels/rates`,
+        {
+          hotelIds: [hotelId],
+          checkin,
+          checkout,
+          occupancies: buildOccupancies(occupancy),
+          currency: 'USD',
+          guestNationality: 'US',
+          maxRatesPerHotel: 8,
+        },
+        { headers: liteApiHeaders(), timeout: 20_000 }
+      ),
+    ]);
+
+    const content = contentRes.status === 'fulfilled' ? contentRes.value.data?.data : undefined;
+    if (!content) return null;
+
+    const nights = nightsBetween(checkin, checkout);
+    const rateEntry = ratesRes.status === 'fulfilled' ? ratesRes.value.data.data?.[0] : undefined;
+
+    const details: HotelDetails = {
+      id: `liteapi-${content.id ?? hotelId}`,
+      name: content.name ?? 'Unknown hotel',
+      description: stripHtml(content.hotelDescription) || undefined,
+      address: content.address,
+      city: content.city,
+      stars: content.starRating,
+      rating: content.rating ? Math.min(5, Math.round((content.rating / 2) * 10) / 10) : undefined,
+      review_count: content.reviewCount,
+      photos: collectPhotos(content),
+      amenities: collectAmenities(content),
+      checkin_time: content.checkinCheckoutTimes?.checkin_start ?? content.checkinCheckoutTimes?.checkin,
+      checkout_time: content.checkinCheckoutTimes?.checkout,
+      important_info: stripHtml(content.hotelImportantInformation).slice(0, 600) || undefined,
+      rooms: buildRoomOffers(rateEntry, nights),
+      source: 'liteapi',
+    };
+
+    cache.set(cacheKey, details, DETAILS_CACHE_TTL_SECONDS);
+    return details;
+  } catch (err: unknown) {
+    console.error('[liteapi] getHotelDetails error:', err instanceof Error ? err.message : err);
+    return null;
   }
 }

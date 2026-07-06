@@ -9,7 +9,10 @@ the result.
 
 - **Multi-source hotel search** — Booking.com, Hotels.com, Airbnb, TripAdvisor, Google
   Places, and **LiteAPI** (real content + live rates from 2M+ properties in one call),
-  deduplicated and normalized, with booking.com-style filters (budget slider,
+  deduplicated and normalized. LiteAPI is the accuracy-first source: its hotels are floated
+  to the top of the list and win the merge (its content becomes the base record, with a
+  matching Booking.com entry contributing a booking link). Filters are booking.com-style
+  (budget slider,
   review-score buckets with live counts, amenities, source) and sorting, plus a
   **"Load more hotels"** button that pages in 20 more Booking.com results at a time
   (filters and sort preserved)
@@ -33,8 +36,13 @@ the result.
 - **Price history & trends** — every scrape records prices to SQLite, so hotel cards can
   show an honest "↓ 12% vs 3 days ago" badge and a sparkline once a hotel has been seen
   before (complements the in-session price-drop polling with cross-session memory)
-- **Hotel details modal** — full amenity list, rating breakdown, distance, price-history
-  sparkline, and a Google Maps link, all from already-fetched data (no extra provider call)
+- **Clickable hotel cards → pre-booking detail view** — clicking a hotel opens a rich
+  modal. For LiteAPI hotels it fetches deep content for your dates: a photo gallery
+  (keyboard-navigable), the full amenity list, an "About this hotel" description,
+  check-in/out times, and a **Rooms & rates** list (each room's board, refundability, and
+  per-night + total price) — the info a traveler reviews before booking. Other sources show
+  the amenity list, rating, distance, price-history sparkline, and a Google Maps link from
+  already-fetched data.
 - **Currency switcher** — view every price in EUR, GBP, JPY, ILS, AUD, or CAD (keyless
   ECB rates via frankfurter.app, cached 12h); conversions are display-only and marked "≈" —
   the bookable USD price stays authoritative

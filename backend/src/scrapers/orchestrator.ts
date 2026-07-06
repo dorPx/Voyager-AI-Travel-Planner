@@ -170,7 +170,11 @@ export async function runScrapers(params: SearchParams): Promise<CachedPayload> 
   if (duffelRes.status === 'rejected') console.error('[orchestrator] duffel failed:', duffelRes.reason);
   if (ignavRes.status === 'rejected') console.error('[orchestrator] ignav failed:', ignavRes.reason);
 
-  const allHotels = [...ap, ...ra.hotels, ...br, ...hp, ...ab, ...la, ...gp.hotels];
+  // LiteAPI first: it's the accuracy-first source (real content + live rates),
+  // so it becomes the base record in dedupeHotels — its name/photo/rating win,
+  // and a matching Booking.com/etc. entry merges in (contributing a booking_url
+  // and a lower price if it has one).
+  const allHotels = [...la, ...ap, ...ra.hotels, ...br, ...hp, ...ab, ...gp.hotels];
   const allActivities = [...ra.activities, ...gp.activities];
   const allRestaurants = [...ra.restaurants, ...gp.restaurants];
 

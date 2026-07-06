@@ -69,6 +69,37 @@ export interface RestaurantResult {
   source: string;
 }
 
+/** One bookable room option shown in the pre-booking hotel detail view. */
+export interface HotelRoomOffer {
+  name: string;
+  /** Board/meal plan, e.g. "Room Only", "Breakfast included". */
+  board: string;
+  refundable: boolean;
+  /** Whole-stay total and derived per-night, both in USD. */
+  price_total: number;
+  price_per_night: number;
+}
+
+/** Rich, pre-booking detail for a single hotel (currently LiteAPI-backed). */
+export interface HotelDetails {
+  id: string;
+  name: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  stars?: number;
+  /** Guest review score normalized to the app's 0-5 scale. */
+  rating?: number;
+  review_count?: number;
+  photos: string[];
+  amenities: string[];
+  checkin_time?: string;
+  checkout_time?: string;
+  important_info?: string;
+  rooms: HotelRoomOffer[];
+  source: string;
+}
+
 export interface ItineraryDay {
   day: number;
   date: string;

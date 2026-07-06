@@ -10,6 +10,7 @@ import {
   WeatherDay,
   PricePoint,
   PackingList,
+  HotelDetails,
 } from '../../shared/types';
 import type { ModelOption } from '../context/ModelContext';
 import type { SearchResults } from '../context/SearchContext';
@@ -184,6 +185,23 @@ export const api = {
     trip_type?: string;
     activities?: string[];
   }) => post<PackingList>('/api/ai/packing-list', payload),
+
+  // Rich pre-booking detail for a LiteAPI hotel (photos, full amenities, room
+  // rates). Fail-soft: null when unavailable so the modal shows basic card data.
+  getHotelDetails: async (payload: {
+    hotelId: string;
+    checkin: string;
+    checkout: string;
+    adults?: number;
+    children?: number;
+    rooms?: number;
+  }): Promise<HotelDetails | null> => {
+    try {
+      return await post<HotelDetails>('/api/hotels/details', payload);
+    } catch {
+      return null;
+    }
+  },
 
   /**
    * Consumes the recommend/stream SSE endpoint. Native EventSource can't be used

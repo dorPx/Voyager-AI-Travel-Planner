@@ -196,7 +196,11 @@ export function filterHotels(hotels: HotelResult[], filters: ResultFilters): Hot
     }
   }
 
-  return sorted;
+  // LiteAPI is the accuracy-first source (real content + live rates), so float
+  // its hotels above the rest while preserving the chosen order within each
+  // group (Array.filter is stable, so both groups keep their sorted order).
+  const isLite = (h: HotelResult) => h.source === 'liteapi';
+  return [...sorted.filter(isLite), ...sorted.filter((h) => !isLite(h))];
 }
 
 /** Applies the review-score + source filters generically to activities/restaurants, which share those fields with hotels. */

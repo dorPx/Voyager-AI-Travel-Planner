@@ -17,6 +17,7 @@ function sourceLabel(source: string): string {
   if (/hotels\.com-provider/i.test(source)) return 'Hotels.com Provider';
   if (/hotels\.com/i.test(source)) return 'Hotels.com';
   if (/airbnb/i.test(source)) return 'Airbnb';
+  if (/liteapi/i.test(source)) return 'LiteAPI';
   if (/google/i.test(source)) return 'Google';
   return source;
 }

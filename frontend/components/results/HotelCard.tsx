@@ -110,9 +110,9 @@ export default function HotelCard(props: HotelCardProps) {
       <div className={`relative w-full h-44 shrink-0 ${stacked ? '' : 'sm:h-auto sm:w-52 md:w-60'}`}>
         <button
           type="button"
-          onClick={onSelect}
-          aria-label={`Select ${name}`}
-          className="relative block w-full h-full text-left"
+          onClick={onDetails ?? onSelect}
+          aria-label={`View details for ${name}`}
+          className="group relative block w-full h-full text-left"
         >
           {showImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -129,6 +129,11 @@ export default function HotelCard(props: HotelCardProps) {
                 <path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" />
               </svg>
             </div>
+          )}
+          {onDetails && (
+            <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/30 text-white text-xs font-semibold transition-opacity">
+              View details
+            </span>
           )}
           <span className="absolute bottom-2 left-2 bg-white/90 text-[10px] font-medium text-brand-dark px-2 py-0.5 rounded-full shadow">
             {sourceLabel(source)}
@@ -277,7 +282,7 @@ export default function HotelCard(props: HotelCardProps) {
                 stacked ? '' : 'sm:py-1'
               }`}
             >
-              Details
+              View details
             </button>
           )}
         </div>
