@@ -15,7 +15,7 @@ function stopsBadge(stops: number) {
 }
 
 export default function FlightCard(props: FlightResult) {
-  const { airline, price, departure, arrival, duration_minutes, stops } = props;
+  const { airline, price, departure, arrival, duration_minutes, stops, booking_url } = props;
   const badge = stopsBadge(stops);
   const { format } = useCurrency();
 
@@ -39,7 +39,19 @@ export default function FlightCard(props: FlightResult) {
         {badge.label}
       </span>
 
-      <span className="text-xl font-bold text-sky-400 whitespace-nowrap">{format(price)}</span>
+      <div className="flex flex-col items-end shrink-0">
+        <span className="text-xl font-bold text-sky-400 whitespace-nowrap">{format(price)}</span>
+        {booking_url && (
+          <a
+            href={booking_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-sky-400 hover:text-sky-500 hover:underline whitespace-nowrap"
+          >
+            Book →
+          </a>
+        )}
+      </div>
     </div>
   );
 }

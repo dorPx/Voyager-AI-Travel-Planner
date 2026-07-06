@@ -101,6 +101,15 @@ export const api = {
 
   getModels: () => get<ModelOption[]>('/api/models'),
 
+  // Conversational itinerary builder — returns a chat reply plus, when it has
+  // enough to plan, a full itinerary assembled from real, bookable listings.
+  itineraryChat: (payload: { message: string; history: { role: string; content: string }[]; model?: string }) =>
+    post<{ reply: string; itinerary?: TripItinerary; needsMore?: boolean }>('/api/ai/itinerary-chat', payload),
+
+  // Standalone flight search for the Flights tab.
+  searchFlights: (payload: { origin: string; destination: string; depart: string; return?: string }) =>
+    post<{ flights: FlightResult[]; cached: boolean }>('/api/flights/search', payload),
+
   randomTrip: (payload: { budget: number; dates: { start: string; end: string }; model: string }) =>
     post<{ destination: string; trip_type: string; rationale: string; stream_url: string }>(
       '/api/recommend/random-trip',

@@ -1,174 +1,204 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
-import AIPanel from '@/components/itinerary/AIPanel';
-import DayBuilder from '@/components/itinerary/DayBuilder';
+import type { TripItinerary } from '../../../shared/types';
+import ItineraryView from '@/components/ItineraryView';
 import ToastViewport from '@/components/results/ToastViewport';
 import { showToast } from '@/components/results/toast';
-import { toTripItinerary, type DayBuilderDay } from '@/components/itinerary/utils';
-import { useWeather } from '@/components/WeatherStrip';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import type { WeatherDay } from '../../../shared/types';
+import { useModel } from '@/context/ModelContext';
 
-export default function ItineraryPage() {
-  const [tripName, setTripName] = useState('My Trip');
-  const [destination, setDestination] = useState('');
-  const [tripType, setTripType] = useState('leisure');
-  const [days, setDays] = useState<DayBuilderDay[]>([]);
-  const [savedId, setSavedId] = useState<string | null>(null);
-  const [shareId, setShareId] = useState<string | null>(null);
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  itinerary?: TripItinerary;
+}
+
+const SUGGESTIONS = [
+  '3 days in Kyoto — temples, food, and gardens',
+  'A day of street food and markets in Bangkok',
+  'Kayaking and coffee in Vancouver',
+  'Barcelona for architecture and nightlife',
+];
+
+const GREETING =
+  "Tell me a city and what you're into — food, museums, hiking, nightlife — and I'll build a day-by-day itinerary from real, bookable listings. Just want one thing? I'll plan a single day around it.";
+
+/** Save bar shown under a generated itinerary. */
+function SaveBar({ itinerary }: { itinerary: TripItinerary }) {
+  const [saved, setSaved] = useState<TripItinerary | null>(null);
   const [saving, setSaving] = useState(false);
-  const [budget, setBudget] = useState(2000);
-
-  // Forecast for the builder's date range — one fetch, mapped per date for
-  // the day headers. Renders nothing when dates are unset or unforecastable.
-  const firstDate = days.find((d) => d.date)?.date;
-  const lastDate = [...days].reverse().find((d) => d.date)?.date;
-  const weatherDays = useWeather(destination || undefined, firstDate, lastDate);
-  const weatherByDate = useMemo(() => {
-    const map: Record<string, WeatherDay> = {};
-    for (const w of weatherDays) map[w.date] = w;
-    return map;
-  }, [weatherDays]);
-
-  function handleAdopt({
-    destination: dest,
-    tripType: type,
-    days: seededDays,
-  }: {
-    destination: string;
-    tripType: string;
-    days: DayBuilderDay[];
-  }) {
-    setDestination(dest);
-    setTripType(type);
-    setTripName(`${dest} Trip`);
-    setDays(seededDays);
-    setSavedId(null);
-    setShareId(null);
-    showToast(`Adopted a ${seededDays.length}-day plan for ${dest}`);
-  }
-
-  function handleDaysChange(next: DayBuilderDay[]) {
-    setDays(next);
-    setSavedId(null);
-    setShareId(null);
-  }
 
   async function handleSave() {
-    if (!destination) {
-      showToast('Add a destination before saving.');
-      return;
-    }
-    if (days.length === 0) {
-      showToast('Add at least one day before saving.');
-      return;
-    }
-
     setSaving(true);
     try {
-      const itinerary = toTripItinerary(days, destination, tripType, tripName);
-      const saved = await api.itinerary.save(itinerary);
-      setSavedId(saved.id);
-      setShareId(saved.share_id ?? null);
-      showToast('Saved!');
+      const { id: _drop, ...rest } = itinerary;
+      const result = await api.itinerary.save(rest);
+      setSaved(result);
+      showToast('Trip saved!');
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Could not save itinerary.');
+      showToast(err instanceof Error ? err.message : 'Could not save trip.');
     } finally {
       setSaving(false);
     }
   }
 
-  function handleExportPdf() {
-    if (!savedId) return;
-    window.open(api.itinerary.exportPdfUrl(savedId), '_blank', 'noopener,noreferrer');
-  }
-
-  function downloadUrl(href: string) {
-    const a = document.createElement('a');
-    a.href = href;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-
-  function handleExportJson() {
-    if (!savedId) return;
-    downloadUrl(api.itinerary.exportJsonUrl(savedId));
-  }
-
-  function handleExportIcs() {
-    if (!savedId) return;
-    downloadUrl(api.itinerary.exportIcsUrl(savedId));
-  }
-
   async function handleShare() {
-    if (!shareId) return;
-    const link = `${window.location.origin}/share/${shareId}`;
+    if (!saved?.share_id) return;
+    const link = `${window.location.origin}/share/${saved.share_id}`;
     try {
       await navigator.clipboard.writeText(link);
-      showToast('Read-only link copied to clipboard');
+      showToast('Read-only link copied');
     } catch {
       showToast(link);
     }
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <input
-          value={tripName}
-          onChange={(e) => {
-            setTripName(e.target.value);
-            setSavedId(null);
-          }}
-          className="text-2xl font-bold text-brand-black bg-transparent border-b border-transparent hover:border-beige-300 focus:border-sky-300 focus:outline-none px-1"
-        />
-        {destination && <p className="text-sm text-brand-mid mt-1">{destination}</p>}
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {saved ? (
+        <>
+          <Link
+            href={`/trips/${saved.id}`}
+            className="bg-sky-400 hover:bg-sky-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            Open saved trip →
+          </Link>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="text-sm font-medium text-brand-black border border-beige-300 bg-white hover:bg-beige-100 px-4 py-2 rounded-lg transition-colors"
+          >
+            Share
+          </button>
+          <a
+            href={api.itinerary.exportIcsUrl(saved.id)}
+            className="text-sm font-medium text-brand-black border border-beige-300 bg-white hover:bg-beige-100 px-4 py-2 rounded-lg transition-colors"
+          >
+            Add to calendar
+          </a>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-sky-400 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+        >
+          {saving ? 'Saving…' : 'Save this trip'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function ItineraryPage() {
+  const { selectedModel } = useModel();
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'assistant', content: GREETING }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function send(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: trimmed };
+    const priorHistory = messages.map((m) => ({ role: m.role, content: m.content }));
+    setMessages((m) => [...m, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const res = await api.itineraryChat({ message: trimmed, history: priorHistory, model: selectedModel });
+      setMessages((m) => [...m, { role: 'assistant', content: res.reply, itinerary: res.itinerary }]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong.';
+      setMessages((m) => [...m, { role: 'assistant', content: `Sorry — ${msg}` }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const showSuggestions = messages.length === 1;
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-140px)]">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-brand-black">Plan with AI</h1>
+        <p className="text-sm text-brand-mid">Describe your trip in a sentence — the AI builds it from real listings.</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="lg:w-2/3 w-full">
-          {days.length === 0 ? (
-            <div className="bg-white border border-dashed border-beige-300 rounded-xl p-10 text-center text-sm text-brand-mid">
-              Start by adding a day below, or use the AI Planner on the right to generate a starting plan.
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => setDays([{ day: 1, date: '', morning: [], afternoon: [], evening: [] }])}
-                  className="bg-sky-300 hover:bg-sky-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                >
-                  + Add day 1
-                </button>
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        {messages.map((m, i) => (
+          <div key={i}>
+            <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                  m.role === 'user' ? 'bg-sky-400 text-white' : 'bg-white border border-beige-300 text-brand-dark'
+                }`}
+              >
+                {m.content}
               </div>
             </div>
-          ) : (
-            <DayBuilder
-              days={days}
-              onChange={handleDaysChange}
-              destination={destination}
-              onSave={handleSave}
-              saving={saving}
-              savedId={savedId}
-              onExportPdf={handleExportPdf}
-              onExportJson={handleExportJson}
-              onExportIcs={handleExportIcs}
-              onShare={handleShare}
-              canShare={Boolean(shareId)}
-              budget={budget}
-              onBudgetChange={setBudget}
-              weatherByDate={weatherByDate}
-            />
-          )}
-        </div>
+            {m.itinerary && (
+              <div className="mt-3">
+                <ItineraryView itinerary={m.itinerary} />
+                <SaveBar itinerary={m.itinerary} />
+              </div>
+            )}
+          </div>
+        ))}
 
-        <div className="lg:w-1/3 w-full lg:sticky lg:top-20 lg:self-start">
-          <ErrorBoundary label="AIPanel">
-            <AIPanel onAdopt={handleAdopt} />
-          </ErrorBoundary>
-        </div>
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white border border-beige-300 rounded-2xl px-4 py-2.5 text-sm text-brand-mid animate-pulse">
+              Planning your trip from live listings…
+            </div>
+          </div>
+        )}
+
+        {showSuggestions && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => send(s)}
+                className="text-xs font-medium text-brand-black bg-white border border-beige-300 hover:border-sky-300 hover:text-sky-500 px-3 py-1.5 rounded-full transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="border-t border-beige-300 pt-3 mt-3 flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
+          placeholder="e.g. 2 days in Lisbon — seafood and viewpoints"
+          className="flex-1 border border-beige-300 bg-white rounded-lg px-3 py-2.5 text-sm text-brand-black focus:outline-none focus:ring-2 focus:ring-sky-300"
+          disabled={loading}
+        />
+        <button
+          type="button"
+          onClick={() => send(input)}
+          disabled={loading || !input.trim()}
+          className="bg-sky-400 hover:bg-sky-500 disabled:opacity-40 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+        >
+          Send
+        </button>
       </div>
 
       <ToastViewport />

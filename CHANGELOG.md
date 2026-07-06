@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Changed — Itinerary tab is now a conversational AI planner; new Flights tab
+- **Plan with AI.** The Itinerary tab's manual drag-and-drop day builder is replaced by a
+  chatbot. You describe a trip ("2 days in Lisbon — seafood and viewpoints"); the backend
+  (`POST /api/ai/itinerary-chat`) extracts the city, length, optional origin, and interests
+  via the LLM, pulls **real listings** for that city through the search orchestrator (LiteAPI
+  hotels + Google activities/restaurants + flights when an origin is given), then has the
+  OpenRouter model compose the day-by-day plan **choosing only from those real items by id**.
+  The itinerary is reconstructed from the real objects, so nothing is hallucinated and every
+  stop links back to something bookable (hotel booking link — or a Booking.com search
+  fallback — Google Maps for activities/restaurants, and a recommended outbound flight).
+  A single, unspecific request defaults to a **one-day** plan. Generated trips save / share /
+  export via the existing endpoints. Out-of-credit or bad-key model errors degrade to a
+  friendly "pick a lighter model" reply. The now-unused manual-builder components
+  (`AIPanel`, `DayBuilder`, `ItemPickerModal`) were removed.
+- **Flights tab.** New `/flights` page + `POST /api/flights/search`: a standalone flight
+  search (from / to / depart / return) that aggregates and dedupes fares across the wired
+  providers (Ignav, Duffel, Google Flights / Sky-Scrapper), sorts cheapest-first, and gives
+  each result a bookable Google Flights deep link. `FlightResult` gained an optional
+  `booking_url`; `TripItinerary` gained an optional `flight`. (A dedicated flight API key can
+  be slotted in as another source when provided.)
+- Nav updated: header gains **Flights** and **Plan with AI**; the mobile bottom bar swaps the
+  Map shortcut for **Flights** (Map is still reachable via the results-view toggle).
+
 ### Added — LiteAPI pre-booking detail view + accuracy-first prioritization
 - **Clickable hotel cards.** Clicking a hotel card (or its "View details") opens the detail
   modal — the whole photo is now the primary trigger, with a "View details" hover cue.

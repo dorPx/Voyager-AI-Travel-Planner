@@ -51,8 +51,11 @@ export default function Header() {
         <div className="flex-1" />
 
         <nav className="flex items-center gap-4 sm:gap-6">
+          <Link href="/flights" className="hidden sm:inline text-sm font-medium text-brand-mid hover:text-brand-black transition-colors">
+            Flights
+          </Link>
           <Link href="/itinerary" className="hidden sm:inline text-sm font-medium text-brand-mid hover:text-brand-black transition-colors">
-            Build Itinerary
+            Plan with AI
           </Link>
           <Link href="/trips" className="hidden sm:inline text-sm font-medium text-brand-mid hover:text-brand-black transition-colors">
             Saved Trips

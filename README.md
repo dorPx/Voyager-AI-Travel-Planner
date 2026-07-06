@@ -46,12 +46,8 @@ the result.
 - **Currency switcher** — view every price in EUR, GBP, JPY, ILS, AUD, or CAD (keyless
   ECB rates via frankfurter.app, cached 12h); conversions are display-only and marked "≈" —
   the bookable USD price stays authoritative
-- **Weather for your dates** — daily forecast chips on the results page and per-day in the
-  itinerary builder (keyless Open-Meteo, up to 16 days out; unforecastable dates simply
-  render nothing)
-- **Trip budget tracker** — set a budget in the itinerary builder and watch a
-  green→amber→red bar fill with a live "left / over" delta as you add stays, meals, and
-  activities
+- **Weather for your dates** — daily forecast chips on the results page (keyless
+  Open-Meteo, up to 16 days out; unforecastable dates simply render nothing)
 - **Walking distances between stops** — "0.9 km · ~12 min walk" (or drive-time) connectors
   between consecutive itinerary stops, computed from real coordinates and hidden when
   coordinates are missing — never guessed
@@ -64,11 +60,18 @@ the result.
   persist locally
 - **Dark mode** — system / light / dark toggle in the header, persisted, flash-free on
   load, honoring `prefers-color-scheme`
-- **AI itinerary builder** — streams a day-by-day, budget-constrained itinerary over SSE
-  using the real scraped prices (OpenRouter, model selectable in the UI)
-- **Supplementary AI trip planner** — a second AI source (RapidAPI) whose day plans are
-  woven into the itinerary; free-text interests ("foodie", "want to chill") are classified
-  onto the provider's closed vocabulary by a small LLM with a deterministic fallback
+- **Plan with AI (conversational itinerary)** — the Itinerary tab is a chatbot: say a city
+  and what you're into ("temples and street food in Kyoto", "kayaking in Vancouver") and it
+  builds a day-by-day plan. It pulls **real listings** for that city (LiteAPI hotels, Google
+  activities/restaurants, and flights when you name an origin), then the OpenRouter LLM
+  composes the days choosing only from those real items **by id** — so every stop links back
+  to a bookable listing (hotel booking link, Google Maps for activities/restaurants, and an
+  outbound flight). A single, unspecific request defaults to a **one-day** plan. Generated
+  trips save, share, and export like any other. (Model is selectable; a light model such as
+  Claude Haiku is recommended.)
+- **Flights tab** — a standalone flight search (from / to / dates) that aggregates and
+  deduplicates fares across every wired provider (Ignav, Duffel, Google Flights /
+  Sky-Scrapper), sorted cheapest-first, each linking out to book the route.
 - **Fail-soft by design** — every data source degrades independently; a missing key or a
   provider outage drops that source, never the app
 

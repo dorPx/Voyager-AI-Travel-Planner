@@ -56,6 +56,8 @@ export interface FlightResult {
   duration_minutes: number;
   stops: number;
   source: string;
+  /** Deep link to book/search this itinerary, when the provider offers one. */
+  booking_url?: string;
 }
 
 export interface RestaurantResult {
@@ -118,6 +120,8 @@ export interface TripItinerary {
   trip_type: string;
   /** Public read-only share token — safe to expose, grants view access only. */
   share_id?: string;
+  /** Recommended outbound flight, when the trip was planned with an origin city. */
+  flight?: FlightResult;
 }
 
 /** One day of forecast for the trip window (Open-Meteo, metric). */

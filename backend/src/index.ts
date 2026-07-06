@@ -14,6 +14,8 @@ import currencyRouter from './routes/currency';
 import weatherRouter from './routes/weather';
 import priceHistoryRouter from './routes/priceHistory';
 import hotelsRouter from './routes/hotels';
+import flightsRouter from './routes/flights';
+import itineraryChatRouter from './routes/itineraryChat';
 
 // Initialize DB on startup
 import './db';
@@ -38,6 +40,8 @@ app.use('/api/currency', currencyRouter);
 app.use('/api/weather', weatherRouter);
 app.use('/api/price-history', priceHistoryRouter);
 app.use('/api/hotels', hotelsRouter);
+app.use('/api/flights', flightsRouter);
+app.use('/api/ai/itinerary-chat', itineraryChatRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
