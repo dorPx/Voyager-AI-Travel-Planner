@@ -7,8 +7,9 @@ the result.
 
 ## Features
 
-- **Multi-source hotel search** — Booking.com, Hotels.com, Airbnb, TripAdvisor, and Google
-  Places, deduplicated and normalized, with booking.com-style filters (budget slider,
+- **Multi-source hotel search** — Booking.com, Hotels.com, Airbnb, TripAdvisor, Google
+  Places, and **LiteAPI** (real content + live rates from 2M+ properties in one call),
+  deduplicated and normalized, with booking.com-style filters (budget slider,
   review-score buckets with live counts, amenities, source) and sorting, plus a
   **"Load more hotels"** button that pages in 20 more Booking.com results at a time
   (filters and sort preserved)
@@ -123,6 +124,7 @@ npm run dev        # backend :4000 + frontend :3000 via concurrently
 | `APIFY_API_KEY` | Google Places crawler for activities/restaurants | [apify.com](https://apify.com) → Settings → API tokens |
 | `DUFFEL_API_KEY` | Flight offers | [duffel.com](https://duffel.com) — a `duffel_test_` key returns realistic synthetic offers |
 | `IGNAV_API_KEY` | Flight fares (an extra flight source; **flights only**, no hotels) | [ignav.com](https://ignav.com) — free tier is 1,000 requests; leave blank to disable |
+| `LITEAPI_API_KEY` | Hotel content + live rates (name, photo, geo, guest score, price — the richest hotel source) | [liteapi.travel](https://liteapi.travel) — a `sand_` key returns sandbox test data, a prod key real inventory; leave blank to disable |
 | `NEXT_PUBLIC_API_URL` | Where the browser reaches the backend | `http://localhost:4000` unless you moved it |
 | `PORT`, `CACHE_TTL_SECONDS`, `CORS_ORIGIN`, `OPENROUTER_FALLBACK_MODEL` | Optional tuning | Sensible defaults in code |
 

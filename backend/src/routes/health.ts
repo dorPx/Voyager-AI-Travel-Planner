@@ -26,6 +26,7 @@ import { scrapeHotels4, scrapeHotelsComProvider } from '../scrapers/rapidapi/hot
 import { scrapeAirbnb } from '../scrapers/rapidapi/airbnb';
 import { scrapeDuffelFlights } from '../scrapers/duffel';
 import { scrapeIgnavFlights } from '../scrapers/ignav';
+import { scrapeLiteApiHotels } from '../scrapers/liteapi';
 import { scrapeGooglePlaces } from '../scrapers/google';
 
 const router = Router();
@@ -220,6 +221,19 @@ async function checkIgnav(): Promise<boolean> {
   }
 }
 
+async function checkLiteApi(): Promise<boolean> {
+  if (!process.env.LITEAPI_API_KEY) return false;
+  try {
+    const res = await axios.get('https://api.liteapi.travel/v3.0/data/countries', {
+      headers: { 'X-API-Key': process.env.LITEAPI_API_KEY },
+      timeout: CHECK_TIMEOUT_MS,
+    });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 async function checkGoogle(): Promise<boolean> {
   try {
     const res = await axios.post(
@@ -278,6 +292,7 @@ router.get('/', async (_req: Request, res: Response) => {
     rapidapi_airbnb,
     duffel,
     ignav,
+    liteapi,
     google,
   ] = await Promise.all([
     checkOpenRouter(),
@@ -290,6 +305,7 @@ router.get('/', async (_req: Request, res: Response) => {
     checkRapidApiAirbnb(),
     checkDuffel(),
     checkIgnav(),
+    checkLiteApi(),
     checkGoogle(),
   ]);
 
@@ -307,6 +323,7 @@ router.get('/', async (_req: Request, res: Response) => {
     rapidapi_airbnb,
     duffel,
     ignav,
+    liteapi,
     google,
     sqlite,
     cache: cacheOk,
@@ -439,6 +456,17 @@ router.get('/test/ignav', async (req: Request, res: Response) => {
   try {
     const flights = await scrapeIgnavFlights(origin, destination, checkin, checkout);
     return res.json({ count: flights.length, breakdown: { flights: flights.length }, sample: flights[0] ?? null });
+  } catch (err: unknown) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.get('/test/liteapi', async (req: Request, res: Response) => {
+  const destination = (req.query.destination as string) || 'Paris';
+  const { checkin, checkout } = defaultDateRange();
+  try {
+    const hotels = await scrapeLiteApiHotels(destination, checkin, checkout, { adults: 2 });
+    return res.json({ count: hotels.length, breakdown: { hotels: hotels.length }, sample: hotels[0] ?? null });
   } catch (err: unknown) {
     return res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }

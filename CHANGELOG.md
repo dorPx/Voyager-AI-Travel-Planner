@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added — LiteAPI hotel source (real content + live rates)
+- **LiteAPI (Nuitée)** joins the hotel pipeline as the richest source yet: a single
+  `POST /hotels/rates` returns both hotel content (name, photo, geocoded location, star
+  category, guest review score) and live per-stay rates, joined on the hotel id. The
+  destination is geocoded once (reusing the existing cached geocoder) and searched by
+  lat/lng radius, so there's no brittle city/country parsing. Rates come back as the
+  whole-stay USD total and are normalized to the app's per-night `HotelResult` (guest
+  score mapped from 0–10 to the app's 0–5 scale; "Breakfast included" / "Free
+  cancellation" surfaced as amenity chips from the offer). Fully fail-soft — a missing
+  `LITEAPI_API_KEY`, an ungeocodable destination, or any upstream error drops LiteAPI and
+  never the search. A `sand_` key uses the sandbox; a prod key returns real inventory.
+  Exposed at `/api/health` and the dev dashboard's `/api/health/test/liteapi`.
+
 ### Added — Ignav as a fourth flight source
 - **Ignav flight fares** ([ignav.com](https://ignav.com)) now join Google Flights,
   Sky-Scrapper, and Duffel in the flights pipeline. Origin free-text is resolved to an

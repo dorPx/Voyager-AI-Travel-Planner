@@ -8,6 +8,7 @@ import { scrapeHotelsProviders } from './rapidapi/hotels';
 import { scrapeAirbnb } from './rapidapi/airbnb';
 import { scrapeDuffelFlights } from './duffel';
 import { scrapeIgnavFlights } from './ignav';
+import { scrapeLiteApiHotels } from './liteapi';
 import { scrapeGooglePlaces } from './google';
 import { fillMissingHotelCoords, fillHotelDistances } from './geocode';
 import { recordHotelPrices } from '../services/priceHistory.service';
@@ -133,12 +134,13 @@ export async function runScrapers(params: SearchParams): Promise<CachedPayload> 
   const { destination, checkin, checkout, origin, adults, children, rooms } = params;
   const occupancy = { adults, children, rooms };
 
-  const [apifyRes, rapidApiRes, bookingRapidRes, hotelsProvidersRes, airbnbRes, googleRes, flightsRes, duffelRes, ignavRes] = await Promise.allSettled([
+  const [apifyRes, rapidApiRes, bookingRapidRes, hotelsProvidersRes, airbnbRes, liteApiRes, googleRes, flightsRes, duffelRes, ignavRes] = await Promise.allSettled([
     scrapeBooking(destination, checkin, checkout),
     scrapeTripAdvisor(destination, checkin, checkout),
     scrapeBookingHotels(destination, checkin, checkout, occupancy),
     scrapeHotelsProviders(destination, checkin, checkout, occupancy),
     scrapeAirbnb(destination, checkin, checkout),
+    scrapeLiteApiHotels(destination, checkin, checkout, occupancy),
     scrapeGooglePlaces(destination),
     // Flights need an origin — without one there's nothing meaningful to search for.
     origin ? scrapeFlights(origin, destination, checkin, checkout) : Promise.resolve([]),
@@ -151,6 +153,7 @@ export async function runScrapers(params: SearchParams): Promise<CachedPayload> 
   const br = bookingRapidRes.status === 'fulfilled' ? bookingRapidRes.value : [];
   const hp = hotelsProvidersRes.status === 'fulfilled' ? hotelsProvidersRes.value : [];
   const ab = airbnbRes.status === 'fulfilled' ? airbnbRes.value : [];
+  const la = liteApiRes.status === 'fulfilled' ? liteApiRes.value : [];
   const gp = googleRes.status === 'fulfilled' ? googleRes.value : { hotels: [], activities: [], restaurants: [] };
   const fl = flightsRes.status === 'fulfilled' ? flightsRes.value : [];
   const df = duffelRes.status === 'fulfilled' ? duffelRes.value : [];
@@ -161,12 +164,13 @@ export async function runScrapers(params: SearchParams): Promise<CachedPayload> 
   if (bookingRapidRes.status === 'rejected') console.error('[orchestrator] rapidapi/booking failed:', bookingRapidRes.reason);
   if (hotelsProvidersRes.status === 'rejected') console.error('[orchestrator] rapidapi/hotels failed:', hotelsProvidersRes.reason);
   if (airbnbRes.status === 'rejected') console.error('[orchestrator] rapidapi/airbnb failed:', airbnbRes.reason);
+  if (liteApiRes.status === 'rejected') console.error('[orchestrator] liteapi failed:', liteApiRes.reason);
   if (googleRes.status === 'rejected') console.error('[orchestrator] google failed:', googleRes.reason);
   if (flightsRes.status === 'rejected') console.error('[orchestrator] rapidapi/flights failed:', flightsRes.reason);
   if (duffelRes.status === 'rejected') console.error('[orchestrator] duffel failed:', duffelRes.reason);
   if (ignavRes.status === 'rejected') console.error('[orchestrator] ignav failed:', ignavRes.reason);
 
-  const allHotels = [...ap, ...ra.hotels, ...br, ...hp, ...ab, ...gp.hotels];
+  const allHotels = [...ap, ...ra.hotels, ...br, ...hp, ...ab, ...la, ...gp.hotels];
   const allActivities = [...ra.activities, ...gp.activities];
   const allRestaurants = [...ra.restaurants, ...gp.restaurants];
 
