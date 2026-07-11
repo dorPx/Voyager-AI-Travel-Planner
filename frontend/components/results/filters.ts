@@ -196,13 +196,24 @@ export function filterHotels(hotels: HotelResult[], filters: ResultFilters): Hot
     }
   }
 
+  // Show at most 20 Apify-scraped hotels at a time (they carry an `apify-` id
+  // prefix). The TripAdvisor enrichment already caps its fetch at 20; this
+  // keeps the display at 20 regardless of what has accumulated in the cache.
+  const APIFY_DISPLAY_LIMIT = 20;
+  let apifyShown = 0;
+  const capped = sorted.filter((h) => {
+    if (!h.id.startsWith('apify-')) return true;
+    apifyShown += 1;
+    return apifyShown <= APIFY_DISPLAY_LIMIT;
+  });
+
   // LiteAPI (real content + live rates) and the Apify-scraped sources are the
   // accuracy-first providers, so float their hotels above the rest while
   // preserving the chosen order within each group (Array.filter is stable, so
   // both groups keep their sorted order). Apify hotels carry an `apify-` id
   // prefix; LiteAPI ones are identified by source.
   const isPriority = (h: HotelResult) => h.source === 'liteapi' || h.id.startsWith('apify-');
-  return [...sorted.filter(isPriority), ...sorted.filter((h) => !isPriority(h))];
+  return [...capped.filter(isPriority), ...capped.filter((h) => !isPriority(h))];
 }
 
 /** Applies the review-score + source filters generically to activities/restaurants, which share those fields with hotels. */
